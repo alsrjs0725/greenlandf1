@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>그린란드 F1 수비대 — 제주 IMU 주행 데이터셋</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #05080d;
+  --bg2:     #0a0f16;
+  --bg3:     #0f1720;
+  --teal:    #00d4aa;
+  --teal-dim:#008f72;
+  --teal-glow: rgba(0,212,170,0.10);
+  --amber:   #f0a500;
+  --red:     #e05555;
+  --text:    #dde8e4;
+  --muted:   #5a7a70;
+  --border:  rgba(0,212,170,0.13);
+  --mono:    'IBM Plex Mono', monospace;
+  --body:    'Noto Sans KR', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-weight: 300;
+  line-height: 1.75;
+  overflow-x: hidden;
+}
+a { text-decoration: none; color: inherit; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--teal-dim); border-radius: 2px; }
+
+/* NAV */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 48px; height: 60px;
+  background: rgba(5,8,13,0.90);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--teal); letter-spacing: 0.12em; }
+.nav-logo span { color: var(--muted); font-weight: 400; }
+.nav-links { display: flex; gap: 28px; list-style: none; align-items: center; }
+.nav-links a { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.1em; transition: color .2s; }
+.nav-links a:hover { color: var(--teal); }
+.nav-cta {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  padding: 8px 22px; border: 1px solid var(--teal);
+  color: var(--teal); border-radius: 2px;
+  letter-spacing: 0.1em; transition: background .2s, color .2s; cursor: pointer;
+}
+.nav-cta:hover { background: var(--teal); color: var(--bg); }
+
+/* HERO */
+#hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 120px 48px 80px;
+  position: relative; overflow: hidden;
+}
+.grid-bg {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(0,212,170,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,170,0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+.hero-canvas-wrap { position: absolute; inset: 0; pointer-events: none; }
+#heroCanvas { width: 100%; height: 100%; }
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; color: var(--teal);
+  margin-bottom: 24px; opacity: 0; animation: up .6s .1s forwards;
+}
+.badge-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--teal);
+  box-shadow: 0 0 8px var(--teal); animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+h1 {
+  font-size: clamp(40px, 6.5vw, 82px); font-weight: 700;
+  line-height: 1.06; letter-spacing: -0.025em; max-width: 900px;
+  opacity: 0; animation: up .8s .25s forwards;
+}
+h1 .teal { color: var(--teal); }
+
+.hero-desc {
+  margin-top: 28px; font-size: 15px; color: var(--muted);
+  max-width: 520px; line-height: 1.85;
+  opacity: 0; animation: up .7s .45s forwards;
+}
+.hero-actions {
+  margin-top: 40px; display: flex; gap: 14px; flex-wrap: wrap;
+  opacity: 0; animation: up .7s .6s forwards;
+}
+.btn-p {
+  padding: 14px 34px; background: var(--teal); color: var(--bg);
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.1em; border: none; border-radius: 2px;
+  cursor: pointer; transition: opacity .2s, transform .15s;
+}
+.btn-p:hover { opacity: .85; transform: translateY(-2px); }
+.btn-g {
+  padding: 14px 34px; background: transparent; color: var(--text);
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+  border: 1px solid rgba(221,232,228,.18); border-radius: 2px;
+  cursor: pointer; transition: border-color .2s, color .2s;
+}
+.btn-g:hover { border-color: var(--teal); color: var(--teal); }
+
+.hero-kpi {
+  margin-top: 72px; display: flex; gap: 48px; flex-wrap: wrap;
+  border-top: 1px solid var(--border); padding-top: 32px;
+  opacity: 0; animation: up .7s .8s forwards;
+}
+.kpi-num { font-family: var(--mono); font-size: 36px; font-weight: 700; color: var(--teal); line-height: 1; }
+.kpi-unit { font-size: 18px; color: var(--teal-dim); }
+.kpi-label { font-size: 11px; color: var(--muted); margin-top: 6px; letter-spacing: 0.04em; }
+
+@keyframes up { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:translateY(0); } }
+
+/* MARQUEE */
+.marquee-wrap { background: var(--teal); color: var(--bg); padding: 12px 0; overflow: hidden; white-space: nowrap; }
+.marquee-inner { display: inline-block; animation: marquee 28s linear infinite; }
+.marquee-inner span { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; margin-right: 64px; }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* SECTIONS */
+section { padding: 100px 48px; }
+.s-tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; color: var(--teal); margin-bottom: 16px; }
+.s-title { font-size: clamp(26px, 3.5vw, 44px); font-weight: 700; line-height: 1.18; letter-spacing: -0.02em; }
+.s-title em { color: var(--teal); font-style: normal; }
+.s-body { font-size: 14px; color: var(--muted); margin-top: 14px; max-width: 520px; line-height: 1.9; }
+.divider { height: 1px; background: var(--border); margin: 0 48px; }
+
+/* PROBLEM */
+#problem { background: var(--bg2); }
+.prob-layout { margin-top: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+.prob-cards { display: flex; flex-direction: column; gap: 3px; }
+.prob-card {
+  background: var(--bg3); padding: 28px 30px;
+  border-left: 3px solid transparent; transition: border-color .25s; cursor: default;
+}
+.prob-card:hover { border-left-color: var(--teal); }
+.prob-card.red   .prob-big { color: var(--red); }
+.prob-card.amber .prob-big { color: var(--amber); }
+.prob-card.teal  .prob-big { color: var(--teal); }
+.prob-big { font-family: var(--mono); font-size: 44px; font-weight: 700; line-height: 1; }
+.prob-unit { font-size: 20px; font-weight: 400; }
+.prob-title { font-size: 14px; font-weight: 500; margin-top: 10px; }
+.prob-desc { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.prob-quote { font-size: 22px; font-weight: 500; line-height: 1.5; letter-spacing: -0.01em; }
+.prob-quote .highlight { color: var(--teal); }
+.prob-context { margin-top: 24px; font-size: 13px; color: var(--muted); line-height: 1.85; }
+.market-box { margin-top: 32px; padding: 24px 28px; border: 1px solid var(--border); border-radius: 2px; background: var(--teal-glow); }
+.market-box-title { font-family: var(--mono); font-size: 10px; color: var(--teal); letter-spacing: 0.2em; margin-bottom: 12px; }
+.market-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.market-row:last-child { border-bottom: none; }
+.market-key { font-size: 12px; color: var(--muted); }
+.market-val { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--teal); }
+
+/* PRODUCT */
+#product { background: var(--bg); }
+.prod-grid { margin-top: 56px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.prod-card {
+  background: var(--bg2); padding: 40px 32px;
+  border-top: 2px solid var(--border); transition: border-color .25s, background .25s;
+  position: relative; overflow: hidden;
+}
+.prod-card::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 0; background: var(--teal-glow); transition: height .3s; }
+.prod-card:hover { border-top-color: var(--teal); background: var(--bg3); }
+.prod-card:hover::after { height: 4px; }
+.prod-icon { font-size: 28px; margin-bottom: 24px; display: block; }
+.prod-title { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+.prod-desc { font-size: 13px; color: var(--muted); line-height: 1.85; }
+.prod-tags { margin-top: 20px; display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-family: var(--mono); font-size: 10px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 2px; color: var(--muted); }
+
+/* WHY */
+#why { background: var(--bg2); }
+.why-layout { margin-top: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.why-item { padding: 36px 36px; background: var(--bg3); display: flex; gap: 24px; }
+.why-num { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--teal-dim); flex-shrink: 0; line-height: 1.1; }
+.why-title { font-size: 15px; font-weight: 500; margin-bottom: 8px; }
+.why-body { font-size: 13px; color: var(--muted); line-height: 1.85; }
+
+/* CUSTOMERS */
+#customers { background: var(--bg); }
+.cust-grid { margin-top: 56px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 2px; }
+.cust-card { background: var(--bg2); padding: 32px 28px; border-bottom: 2px solid transparent; transition: border-color .25s; }
+.cust-card:hover { border-bottom-color: var(--teal); }
+.cust-step { font-family: var(--mono); font-size: 10px; color: var(--teal); letter-spacing: 0.2em; margin-bottom: 12px; }
+.cust-title { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+.cust-list { list-style: none; }
+.cust-list li { font-size: 12px; color: var(--muted); padding: 5px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.cust-list li:last-child { border-bottom: none; }
+.cust-list li::before { content: '→'; color: var(--teal); font-family: var(--mono); font-size: 11px; flex-shrink: 0; }
+
+/* TEAM */
+#team { background: var(--bg2); }
+.team-grid { margin-top: 56px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2px; }
+.team-card { background: var(--bg3); padding: 32px 28px; }
+.team-avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--bg2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--teal); margin-bottom: 18px;
+}
+.team-name { font-size: 16px; font-weight: 700; }
+.team-role { font-size: 11px; font-family: var(--mono); color: var(--teal); margin-top: 3px; letter-spacing: 0.08em; }
+.team-dept { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.team-tasks { margin-top: 14px; }
+.team-task { font-size: 12px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--border); }
+.team-task:last-child { border-bottom: none; }
+
+/* CONTACT */
+#contact { background: var(--bg); padding: 100px 48px; }
+.contact-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; margin-top: 56px; }
+.c-point { display: flex; gap: 16px; margin-bottom: 28px; align-items: flex-start; }
+.c-icon {
+  width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.c-text-title { font-size: 14px; font-weight: 500; }
+.c-text-body { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.7; }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-family: var(--mono); font-size: 10px; color: var(--teal); letter-spacing: 0.15em; margin-bottom: 8px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 12px 16px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 2px; color: var(--text); font-family: var(--body); font-size: 13px; font-weight: 300;
+  outline: none; transition: border-color .2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--teal); }
+.form-select { cursor: pointer; }
+.form-textarea { resize: vertical; min-height: 100px; }
+.form-select option { background: var(--bg2); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-submit {
+  width: 100%; padding: 14px; margin-top: 8px;
+  background: var(--teal); color: var(--bg);
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.12em; border: none; border-radius: 2px;
+  cursor: pointer; transition: opacity .2s;
+}
+.form-submit:hover { opacity: .85; }
+.form-notice { font-size: 11px; color: var(--muted); margin-top: 10px; text-align: center; }
+
+/* FOOTER */
+footer {
+  background: var(--bg2); border-top: 1px solid var(--border);
+  padding: 40px 48px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;
+}
+.footer-logo { font-family: var(--mono); font-size: 12px; color: var(--teal); }
+.footer-copy { font-size: 11px; color: var(--muted); }
+.footer-links { display: flex; gap: 20px; }
+.footer-links a { font-size: 11px; color: var(--muted); transition: color .2s; }
+.footer-links a:hover { color: var(--teal); }
+
+/* REVEAL */
+.reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s ease, transform .7s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* TOAST */
+#toast {
+  position: fixed; bottom: 32px; right: 32px; z-index: 999;
+  background: var(--teal); color: var(--bg);
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  padding: 14px 28px; border-radius: 2px;
+  transform: translateY(80px); opacity: 0; transition: all .4s cubic-bezier(.4,0,.2,1);
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+
+@media (max-width: 860px) {
+  nav { padding: 0 24px; }
+  .nav-links { display: none; }
+  #hero, section, #contact, footer { padding-left: 24px; padding-right: 24px; }
+  .divider { margin: 0 24px; }
+  .prob-layout, .why-layout, .contact-layout { grid-template-columns: 1fr; gap: 32px; }
+  .prod-grid { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  h1 { font-size: clamp(36px, 10vw, 56px); }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">GF1<span>_SQUAD</span></div>
+  <ul class="nav-links">
+    <li><a href="#problem">문제</a></li>
+    <li><a href="#product">제품</a></li>
+    <li><a href="#why">경쟁우위</a></li>
+    <li><a href="#customers">고객</a></li>
+    <li><a href="#team">팀</a></li>
+  </ul>
+  <a href="#contact" class="nav-cta">데이터셋 문의 →</a>
+</nav>
+
+<section id="hero">
+  <div class="grid-bg"></div>
+  <div class="hero-canvas-wrap"><canvas id="heroCanvas"></canvas></div>
+
+  <div class="hero-badge">
+    <span class="badge-dot"></span>
+    JEJU · AUTONOMOUS DRIVING · IMU DATASET
+  </div>
+
+  <h1>제주 도로의<br><span class="teal">모든 움직임</span>을<br>데이터로 바꿉니다</h1>
+
+  <p class="hero-desc">
+    전국 유일의 제주 특화 차량 IMU 스트림 데이터셋.<br>
+    해안 절벽·산간 커브·관광 혼잡 구간을 포함한<br>
+    실제 렌터카 주행 데이터를 기계학습에 바로 쓸 수 있는 형태로 제공합니다.
+  </p>
+
+  <div class="hero-actions">
+    <a href="#contact" class="btn-p">데이터셋 도입 문의</a>
+    <a href="#product" class="btn-g">제품 살펴보기</a>
+  </div>
+
+  <div class="hero-kpi">
+    <div>
+      <div class="kpi-num">3GB<span class="kpi-unit">/일</span></div>
+      <div class="kpi-label">수집 원시 데이터 규모</div>
+    </div>
+    <div>
+      <div class="kpi-num">3건</div>
+      <div class="kpi-label">특허 출원 진행 중</div>
+    </div>
+    <div>
+      <div class="kpi-num">AWS</div>
+      <div class="kpi-label">Korea 기술 협력</div>
+    </div>
+    <div>
+      <div class="kpi-num">90%<span class="kpi-unit">+</span></div>
+      <div class="kpi-label">목표 위험운전 감지 정확도</div>
+    </div>
+  </div>
+</section>
+
+<div class="marquee-wrap">
+  <div class="marquee-inner">
+    <span>IMU STREAM ANALYSIS</span><span>JEJU ROAD DATASET</span><span>AWS CLOUD PIPELINE</span><span>RANDOM FOREST · CNN · LSTM</span><span>AUTONOMOUS DRIVING SUPPORT</span><span>DANGER DETECTION MODEL</span><span>PATENT × 3</span>
+    <span>IMU STREAM ANALYSIS</span><span>JEJU ROAD DATASET</span><span>AWS CLOUD PIPELINE</span><span>RANDOM FOREST · CNN · LSTM</span><span>AUTONOMOUS DRIVING SUPPORT</span><span>DANGER DETECTION MODEL</span><span>PATENT × 3</span>
+  </div>
+</div>
+
+<section id="problem">
+  <div class="s-tag reveal">// 01. PROBLEM</div>
+  <h2 class="s-title reveal">제주는 <em>아름답지만</em>,<br>가장 위험한 도로입니다</h2>
+
+  <div class="prob-layout">
+    <div class="prob-cards reveal">
+      <div class="prob-card red">
+        <div class="prob-big">12.3<span class="prob-unit">%</span></div>
+        <div class="prob-title">제주 교통사고 중 렌터카 비율</div>
+        <div class="prob-desc">전국 평균 대비 약 3배 — 관광객 안전이 지역 핵심 현안</div>
+      </div>
+      <div class="prob-card amber">
+        <div class="prob-big">3<span class="prob-unit">만대</span></div>
+        <div class="prob-title">제주 연간 렌터카 운영 대수</div>
+        <div class="prob-desc">해안절벽·산간커브·관광혼잡 구간에 집중 노출</div>
+      </div>
+      <div class="prob-card teal">
+        <div class="prob-big">≈0</div>
+        <div class="prob-title">국내 도로 특화 IMU 데이터셋</div>
+        <div class="prob-desc">Waymo·Tesla도 보유하지 못한 한국 실도로 기반 학습 데이터</div>
+      </div>
+    </div>
+
+    <div class="reveal">
+      <p class="prob-quote">
+        자율주행 AI는 <span class="highlight">실제 도로 데이터</span>로<br>학습해야 합니다.<br>
+        그 데이터가 바로 <span class="highlight">제주에 있습니다.</span>
+      </p>
+      <p class="prob-context">
+        국토교통부 자율주행차 시범운행지구인 제주도에는 하루 수백 MB(전국 기준 수 GB)의
+        차량 원시 주행 데이터가 렌터카 플랫폼에 축적되고 있습니다.
+        그러나 이 데이터는 미가공 상태로 방치되어 있으며,
+        텔레매틱스·ECU·IMU 연동 오류와 이상치 제거 없이는 기계학습에 활용할 수 없습니다.
+      </p>
+      <div class="market-box">
+        <div class="market-box-title">// 글로벌 자율주행 데이터셋 시장</div>
+        <div class="market-row"><span class="market-key">자율주행 서비스 시장 (2024)</span><span class="market-val">약 46억 달러</span></div>
+        <div class="market-row"><span class="market-key">연평균 성장률 (CAGR)</span><span class="market-val">33% 이상</span></div>
+        <div class="market-row"><span class="market-key">데이터셋 생성 시장 (2026 예상)</span><span class="market-val">약 5.8억 달러</span></div>
+        <div class="market-row"><span class="market-key">데이터셋 시장 CAGR</span><span class="market-val">34.7%</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="product">
+  <div class="s-tag reveal">// 02. PRODUCT</div>
+  <h2 class="s-title reveal">세 가지 방식으로<br><em>데이터를 제공합니다</em></h2>
+  <p class="s-body reveal">원시 IMU 스트림 수집부터 이상치 제거·레이블링·모델 학습까지, 자율주행 AI 개발에 필요한 전 과정을 커버합니다.</p>
+
+  <div class="prod-grid">
+    <div class="prod-card reveal">
+      <span class="prod-icon">📦</span>
+      <div class="prod-title">정제 IMU 데이터셋</div>
+      <p class="prod-desc">AWS 클라우드 기반 파이프라인으로 처리된 제주 렌터카 IMU 스트림. 급감속·급가속·졸음운전·급차선변경 등 위험 주행 패턴이 레이블링된 기계학습용 데이터셋을 직접 판매·라이선싱합니다.</p>
+      <div class="prod-tags"><span class="tag">CSV / Parquet</span><span class="tag">레이블링 포함</span><span class="tag">이상치 제거</span></div>
+    </div>
+    <div class="prod-card reveal">
+      <span class="prod-icon">🤖</span>
+      <div class="prod-title">위험 운전 감지 모델</div>
+      <p class="prod-desc">Random Forest, CNN, LSTM 등 다양한 모델을 비교·검증하여 최고 성능 모델을 제공합니다. Python 호환 플랫폼에서 바로 적용 가능하며, 자율주행 로직 또는 운전자 경고 시스템에 통합할 수 있습니다.</p>
+      <div class="prod-tags"><span class="tag">Python SDK</span><span class="tag">Sklearn / Keras</span><span class="tag">목표 acc. 90%+</span></div>
+    </div>
+    <div class="prod-card reveal">
+      <span class="prod-icon">🔌</span>
+      <div class="prod-title">위험도 분석 API</div>
+      <p class="prod-desc">실시간 IMU 스트림을 입력받아 운전자 위험 등급을 반환하는 API 서비스. 렌터카 플랫폼·자동차 보험사·스마트헬스케어 서비스에 SaaS 형태로 연동할 수 있습니다.</p>
+      <div class="prod-tags"><span class="tag">REST API</span><span class="tag">실시간</span><span class="tag">보험사 연계</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="why">
+  <div class="s-tag reveal">// 03. UNFAIR ADVANTAGE</div>
+  <h2 class="s-title reveal">우리만 할 수 있는<br><em>네 가지 이유</em></h2>
+
+  <div class="why-layout">
+    <div class="why-item reveal">
+      <div class="why-num">01</div>
+      <div>
+        <div class="why-title">독점 데이터 접근권</div>
+        <p class="why-body">제주 전역 렌터카 운영 플랫폼과의 협력으로 전국 실제 IMU 데이터에 독점 접근합니다. 협력사의 상호 협력 의지가 강하며, 하계 방학 인턴 파견·취업 연계 등 지속적인 파트너십이 구축되어 있습니다.</p>
+      </div>
+    </div>
+    <div class="why-item reveal">
+      <div class="why-num">02</div>
+      <div>
+        <div class="why-title">AWS 코리아 기술 협력</div>
+        <p class="why-body">AWS Korea 연구원과 협업 중이며 클라우드 기반 대용량 질의 및 분석 환경이 구축되어 있습니다. 하루 1GB 이상의 원시 데이터를 실시간으로 처리할 수 있는 인프라를 보유합니다.</p>
+      </div>
+    </div>
+    <div class="why-item reveal">
+      <div class="why-num">03</div>
+      <div>
+        <div class="why-title">선행 연구 및 특허 역량</div>
+        <p class="why-body">배터리 방전 예측 학술대회 논문, DTC 기반 고장 판단 논문(작성 중), 세그먼트 트리 기반 데이터 저장방식 등 특허 3건을 출원 준비 중입니다.</p>
+      </div>
+    </div>
+    <div class="why-item reveal">
+      <div class="why-num">04</div>
+      <div>
+        <div class="why-title">Amazon 코리아 비즈니스 협의</div>
+        <p class="why-body">Amazon Korea가 이 데이터셋을 활용한 비즈니스 모델 개발을 위해 지속적으로 협의 중입니다. 글로벌 자율주행 차량 제조업체로의 공급 채널을 이미 확보하고 있습니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="customers">
+  <div class="s-tag reveal">// 04. CUSTOMER SEGMENTS</div>
+  <h2 class="s-title reveal">누구를 위한<br><em>솔루션인가요</em></h2>
+  <p class="s-body reveal">자율주행 데이터가 필요한 모든 기업과 기관을 위한 솔루션입니다.</p>
+
+  <div class="cust-grid">
+    <div class="cust-card reveal">
+      <div class="cust-step">PRIMARY · 1차 고객</div>
+      <div class="cust-title">렌터카·차량공유 플랫폼</div>
+      <ul class="cust-list">
+        <li>위험 운전 감지 모듈 탑재로 사고율 감소</li>
+        <li>데이터 공동 활용 수익화</li>
+        <li>운전자 안전 등급 서비스 제공</li>
+      </ul>
+    </div>
+    <div class="cust-card reveal">
+      <div class="cust-step">SECONDARY · 2차 고객</div>
+      <div class="cust-title">자율주행 모듈 개발사</div>
+      <ul class="cust-list">
+        <li>탐라자율차 등 제주 지역 자율주행 업체</li>
+        <li>국내 AI 스타트업 및 대기업 모빌리티팀</li>
+        <li>기계학습용 데이터셋·모델 직접 구매</li>
+      </ul>
+    </div>
+    <div class="cust-card reveal">
+      <div class="cust-step">GLOBAL · 글로벌</div>
+      <div class="cust-title">Amazon 코리아 / 해외 OEM</div>
+      <ul class="cust-list">
+        <li>Amazon Korea 통한 글로벌 제조사 공급</li>
+        <li>한국 도로 특화 데이터 희소성 활용</li>
+        <li>기술이전·공동개발 협력</li>
+      </ul>
+    </div>
+    <div class="cust-card reveal">
+      <div class="cust-step">FINANCE · 금융</div>
+      <div class="cust-title">자동차 보험사</div>
+      <ul class="cust-list">
+        <li>운전자 위험도 분석 API 연계</li>
+        <li>개인화 보험료 산정 데이터 제공</li>
+        <li>사고 예측 모델 기반 리스크 평가</li>
+      </ul>
+    </div>
+    <div class="cust-card reveal">
+      <div class="cust-step">PUBLIC · 공공</div>
+      <div class="cust-title">국가기관 &amp; R&amp;D 과제</div>
+      <ul class="cust-list">
+        <li>제주 자율주행 시범지구 관련 정부 과제</li>
+        <li>도로교통 연구기관 데이터 협력</li>
+        <li>특허 기반 기술이전 및 기술료 수입</li>
+      </ul>
+    </div>
+    <div class="cust-card reveal">
+      <div class="cust-step">HEALTH · 헬스케어</div>
+      <div class="cust-title">제주 스마트헬스케어</div>
+      <ul class="cust-list">
+        <li>IMU + 심전도 생체 데이터 융합 모델</li>
+        <li>운전 중 운전자 건강 이상 감지</li>
+        <li>사고 즉시 응급 처리 연계 서비스</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="team">
+  <div class="s-tag reveal">// 05. TEAM</div>
+  <h2 class="s-title reveal">제주대학교<br><em>데이터사이언스</em> 팀</h2>
+  <p class="s-body reveal">코딩 역량 최상위권의 학생들이 F1에 대한 열정과 데이터 분석 기술로 뭉쳤습니다.</p>
+
+  <div class="team-grid">
+    <div class="team-card reveal">
+      <div class="team-avatar">부</div>
+      <div class="team-name">부하영</div>
+      <div class="team-role">TEAM LEAD</div>
+      <div class="team-dept">데이터사이언스학과 3학년</div>
+      <div class="team-tasks">
+        <div class="team-task">프로젝트 총괄 관리</div>
+        <div class="team-task">협력업체 커뮤니케이션</div>
+        <div class="team-task">기계학습 모델 구현</div>
+      </div>
+    </div>
+    <div class="team-card reveal">
+      <div class="team-avatar">김</div>
+      <div class="team-name">김민건</div>
+      <div class="team-role">DATA ENGINEER</div>
+      <div class="team-dept">데이터사이언스학과 2학년</div>
+      <div class="team-tasks">
+        <div class="team-task">IMU 데이터 전처리</div>
+        <div class="team-task">이상치 제거 파이프라인</div>
+        <div class="team-task">기계학습 모델 성능 평가</div>
+      </div>
+    </div>
+    <div class="team-card reveal">
+      <div class="team-avatar">배</div>
+      <div class="team-name">배수빈</div>
+      <div class="team-role">ANALYST &amp; DESIGNER</div>
+      <div class="team-dept">데이터사이언스학과 4학년</div>
+      <div class="team-tasks">
+        <div class="team-task">데이터 시각화 및 분석 정리</div>
+        <div class="team-task">보고서 및 발표 자료 제작</div>
+        <div class="team-task">사업화 전략 수립</div>
+      </div>
+    </div>
+    <div class="team-card reveal">
+      <div class="team-avatar">이</div>
+      <div class="team-name">이정훈 교수</div>
+      <div class="team-role">ADVISOR</div>
+      <div class="team-dept">데이터사이언스학과 지도교수</div>
+      <div class="team-tasks">
+        <div class="team-task">연구 방향 지도</div>
+        <div class="team-task">AWS Korea 협력 연결</div>
+        <div class="team-task">특허 출원 관리</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<section id="contact">
+  <div class="s-tag reveal">// 06. CONTACT</div>
+  <h2 class="s-title reveal">데이터셋 도입을<br><em>검토하고 계신가요?</em></h2>
+  <p class="s-body reveal">자율주행 모듈 개발, 보험사 연계, 국가과제 협력 등<br>어떤 목적이든 문의해 주세요. 빠르게 연락드립니다.</p>
+
+  <div class="contact-layout">
+    <div class="reveal">
+      <div class="c-point">
+        <div class="c-icon">📊</div>
+        <div><div class="c-text-title">샘플 데이터셋 제공</div><div class="c-text-body">도입 전 샘플 IMU 데이터셋을 무료로 제공합니다. 데이터 형식과 품질을 직접 확인해 보세요.</div></div>
+      </div>
+      <div class="c-point">
+        <div class="c-icon">🤝</div>
+        <div><div class="c-text-title">기술 협력 &amp; 공동개발</div><div class="c-text-body">단순 데이터 판매를 넘어 공동연구, 국가과제 지원, 기술이전 등 다양한 형태의 협력이 가능합니다.</div></div>
+      </div>
+      <div class="c-point">
+        <div class="c-icon">📄</div>
+        <div><div class="c-text-title">특허 &amp; IP 라이선싱</div><div class="c-text-body">출원 중인 특허 3건을 포함한 지적재산권 라이선싱 계약에 대해 상담해 드립니다.</div></div>
+      </div>
+      <div class="c-point">
+        <div class="c-icon">☁️</div>
+        <div><div class="c-text-title">AWS 기반 클라우드 구축</div><div class="c-text-body">AWS Korea와 협력하여 고객사 환경에 맞는 데이터 파이프라인 구축도 지원합니다.</div></div>
+      </div>
+    </div>
+
+    <div class="reveal">
+      <form id="contactForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">// 성명</label>
+            <input class="form-input" type="text" placeholder="홍길동" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">// 소속</label>
+            <input class="form-input" type="text" placeholder="회사 또는 기관명" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">// 이메일</label>
+          <input class="form-input" type="email" placeholder="contact@company.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">// 문의 유형</label>
+          <select class="form-select" required>
+            <option value="" disabled selected>선택해주세요</option>
+            <option>정제 IMU 데이터셋 구매·라이선싱</option>
+            <option>위험 운전 감지 모델 도입</option>
+            <option>위험도 분석 API 연동</option>
+            <option>기술 협력·공동개발</option>
+            <option>국가과제·R&D 협력</option>
+            <option>특허 라이선싱</option>
+            <option>기타 문의</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">// 문의 내용</label>
+          <textarea class="form-textarea" placeholder="활용 목적, 필요한 데이터 규모, 일정 등을 자유롭게 적어주세요."></textarea>
+        </div>
+        <button type="submit" class="form-submit">문의 제출하기 →</button>
+        <div class="form-notice">제출된 정보는 사업 협력 검토 목적으로만 사용됩니다.</div>
+      </form>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">GREENLAND F1 SQUAD · 제주대학교 RISE 사업단 창업동아리</div>
+  <div class="footer-copy">© 2026 그린란드 F1 수비대. All rights reserved.</div>
+  <div class="footer-links">
+    <a href="#hero">Top ↑</a>
+    <a href="mailto:contact@gf1squad.kr">이메일 문의</a>
+  </div>
+</footer>
+
+<div id="toast">✓ 문의가 접수되었습니다. 빠르게 연락드리겠습니다!</div>
+
+<script>
+/* IMU WAVEFORM CANVAS */
+(function() {
+  const canvas = document.getElementById('heroCanvas');
+  const ctx = canvas.getContext('2d');
+  let w, h, t = 0;
+  function resize() { w = canvas.width = canvas.offsetWidth; h = canvas.height = canvas.offsetHeight; }
+  window.addEventListener('resize', resize); resize();
+  const waves = [
+    { freq: 0.012, amp: 0.055, phase: 0,   color: 'rgba(0,212,170,0.50)', lw: 1.5 },
+    { freq: 0.020, amp: 0.038, phase: 1.2, color: 'rgba(0,212,170,0.28)', lw: 1.0 },
+    { freq: 0.008, amp: 0.070, phase: 2.5, color: 'rgba(0,168,114,0.22)', lw: 0.8 },
+    { freq: 0.027, amp: 0.022, phase: 0.7, color: 'rgba(240,165,0,0.18)',  lw: 0.7 },
+  ];
+  function drawWave(wave, oy) {
+    ctx.beginPath(); ctx.strokeStyle = wave.color; ctx.lineWidth = wave.lw;
+    for (let x = 0; x <= w; x += 2) {
+      const noise = (Math.random() - 0.5) * 0.006;
+      const y = oy + Math.sin(x * wave.freq + t + wave.phase) * h * wave.amp
+                   + Math.sin(x * wave.freq * 2.3 + t * 1.4 + wave.phase) * h * wave.amp * 0.35
+                   + noise * h;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  function frame() {
+    ctx.clearRect(0, 0, w, h);
+    const rows = 6;
+    for (let r = 0; r < rows; r++) {
+      const oy = h * 0.12 + (h * 0.76 / (rows - 1)) * r;
+      waves.forEach((wave, i) => drawWave({ ...wave, phase: wave.phase + r * 0.9 + i * 0.3 }, oy));
+    }
+    t += 0.0065; requestAnimationFrame(frame);
+  }
+  frame();
+})();
+
+/* SCROLL REVEAL */
+(function() {
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+})();
+
+/* FORM */
+document.getElementById('contactForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const toast = document.getElementById('toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3800);
+  this.reset();
+});
+</script>
+</body>
+</html>
